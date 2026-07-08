@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+*.egg
+
+# Virtual environments
+venv/
+env/
+.venv/
+ENV/
+
+# Environment variables (never commit secrets)
+.env
+
+# Data (too large / private for git — document how to obtain it in README)
+data/*.csv
+
+# Trained models & artifacts (regenerate via training, don't bloat git history)
+models/*.joblib
+artifacts/*.joblib
+artifacts/*.csv
+artifacts/*.json
+catboost_info/
+
+# Logs
+logs/*.log
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage reports
+htmlcov/
+.coverage
+coverage.xml

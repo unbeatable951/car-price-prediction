@@ -1,0 +1,47 @@
+# Version control
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Notebooks & EDA (not needed at runtime)
+notebooks/
+*.ipynb
+.ipynb_checkpoints/
+
+# Logs (generated fresh inside the container)
+logs/
+*.log
+
+# Large intermediate training artifacts not needed for inference
+artifacts/training_bundle.joblib
+catboost_info/
+
+# IDE/OS
+.vscode/
+.idea/
+.DS_Store
+
+# Docs not needed inside the image
+README.md
+*.md
+
+# CI/CD configs (irrelevant inside the container)
+.github/
+.pre-commit-config.yaml
+
+# Tests (not needed in the production image)
+tests/

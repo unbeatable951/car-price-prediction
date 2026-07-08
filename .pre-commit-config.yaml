@@ -1,0 +1,50 @@
+# ============================================================
+# .pre-commit-config.yaml
+# ============================================================
+# Pre-commit runs these checks automatically on every `git commit`,
+# BEFORE the commit is created — catching style issues and obvious
+# bugs locally instead of in code review or CI. Install with:
+#   pip install pre-commit
+#   pre-commit install
+# After that, these hooks run automatically on every commit.
+
+repos:
+  # Black: opinionated, deterministic code formatter. Removes all
+  # debate about formatting style — code is either Black-formatted
+  # or it isn't.
+  - repo: https://github.com/psf/black
+    rev: 24.4.2
+    hooks:
+      - id: black
+        language_version: python3.12
+        args: ["--line-length=100"]
+
+  # isort: automatically sorts and groups import statements
+  # (standard library, third-party, local) consistently.
+  - repo: https://github.com/PyCQA/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: ["--profile", "black", "--line-length=100"]
+
+  # flake8: catches PEP8 violations, unused imports, undefined names,
+  # and other lint issues Black doesn't check (Black only formats,
+  # it doesn't catch logical/style issues like unused variables).
+  - repo: https://github.com/PyCQA/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        args: ["--max-line-length=100", "--extend-ignore=E203,W503"]
+
+  # Generic hygiene hooks: trailing whitespace, missing newline at EOF,
+  # accidental large file commits, and merge-conflict marker detection.
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-added-large-files
+        args: ["--maxkb=10000"]
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-json

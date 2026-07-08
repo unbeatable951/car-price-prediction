@@ -1,0 +1,34 @@
+# ============================================================
+# render.yaml — Render Blueprint for Car Price Prediction API
+# ============================================================
+# Render reads this file automatically when you connect a repo via
+# "New +" -> "Blueprint" — it defines the service without needing to
+# click through Render's UI to configure each setting manually.
+services:
+  - type: web
+    name: car-price-prediction-api
+    runtime: docker           # build & run using our Dockerfile directly
+    plan: free                # Render's free tier; change to 'starter' etc. for production
+    region: oregon             # pick the region closest to your users
+    branch: main               # auto-deploys trigger on pushes to this branch
+
+    # Render automatically builds the Dockerfile at the repo root and
+    # runs the CMD defined in it (gunicorn ...). No separate buildCommand
+    # or startCommand is needed when runtime: docker is used — Render
+    # respects the Dockerfile's own CMD.
+    dockerfilePath: ./Dockerfile
+
+    healthCheckPath: /health   # Render polls this; restarts the instance if it fails
+
+    envVars:
+      - key: PORT
+        value: 5000            # Render overrides this with its own assigned port at runtime;
+                                # kept here as a documented default for local parity
+      - key: FLASK_DEBUG
+        value: "False"
+      - key: LOG_LEVEL
+        value: "INFO"
+      - key: MODEL_VERSION
+        value: "v1"
+
+    autoDeploy: true            # redeploy automatically on every push to `branch`

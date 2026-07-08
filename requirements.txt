@@ -1,0 +1,53 @@
+# ============================================================
+# requirements.txt
+# ============================================================
+# Versions are pinned (==) rather than left open, because:
+#   1. Reproducibility: the model you train today must behave
+#      identically when retrained in CI or deployed on Render.
+#   2. Scikit-learn changes default behavior between versions
+#      (e.g. OneHotEncoder's `sparse` vs `sparse_output` param),
+#      which can silently break a saved pipeline.
+#   3. Docker builds must be deterministic.
+#
+# Grouped by purpose for readability.
+
+# ---------------- Core Data Science ----------------
+numpy==1.26.4
+pandas==2.2.2
+scipy==1.13.0
+
+# ---------------- Visualization (EDA) ----------------
+matplotlib==3.8.4
+seaborn==0.13.2
+
+# ---------------- Machine Learning ----------------
+scikit-learn==1.4.2
+xgboost==2.0.3
+catboost==1.2.5
+
+# ---------------- Model Persistence ----------------
+joblib==1.4.2
+
+# ---------------- Web Framework (Flask API) ----------------
+Flask==3.0.3
+flask-cors==4.0.1
+gunicorn==22.0.0
+
+# ---------------- Input Validation ----------------
+pydantic==2.7.1
+
+# ---------------- Config / Env ----------------
+python-dotenv==1.0.1
+
+# ---------------- Testing ----------------
+pytest==8.2.0
+pytest-cov==5.0.0
+
+# ---------------- Code Quality (pre-commit hooks) ----------------
+black==24.4.2
+flake8==7.0.0
+isort==5.13.2
+
+# ---------------- Jupyter (EDA notebook) ----------------
+jupyter==1.0.0
+ipykernel==6.29.4
