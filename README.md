@@ -13,64 +13,64 @@ built the way a real ML engineering team would structure it.
 
 ```
                      ┌─────────────────────┐
-                     │   cardekho_dataset   │
-                     │        .csv          │
-                     └──────────┬───────────┘
+                     │   cardekho_dataset  │
+                     │        .csv         │
+                     └──────────┬──────────┘
                                 │
                      ┌──────────▼───────────┐
-                     │   data_ingestion.py   │  loads + validates schema
+                     │   data_ingestion.py  │  loads + validates schema
                      └──────────┬───────────┘
                                 │
-              ┌─────────────────▼──────────────────┐
-              │   sklearn Pipeline (per model)       │
+              ┌─────────────────▼────────────────── ┐
+              │   sklearn Pipeline (per model)      │
               │  ┌────────────────────────────────┐ │
-              │  │  FeatureEngineer                │ │  drop cols, impute
-              │  │  (feature_engineering.py)       │ │  (fit on train only)
+              │  │  FeatureEngineer               │ │  drop cols, impute
+              │  │  (feature_engineering.py)      │ │  (fit on train only)
               │  └────────────────┬───────────────┘ │
               │  ┌────────────────▼───────────────┐ │
-              │  │  Preprocessor                   │ │  encode + scale
-              │  │  (preprocessing.py)             │ │  (fit on train only)
+              │  │  Preprocessor                  │ │  encode + scale
+              │  │  (preprocessing.py)            │ │  (fit on train only)
               │  └────────────────┬───────────────┘ │
               │  ┌────────────────▼───────────────┐ │
-              │  │  Regressor (1 of 9 candidates)  │ │
-              │  └──────────────────────────────────┘ │
+              │  │  Regressor (1 of 9 candidates) │ │
+              │  └────────────────────────────────┘ │
               └─────────────────┬───────────────────┘
                                 │
                      ┌──────────▼───────────┐
-                     │      train.py         │  trains all 9 + CV
+                     │      train.py        │  trains all 9 + CV
                      └──────────┬───────────┘
                                 │
                      ┌──────────▼───────────┐
-                     │     evaluate.py       │  compares metrics,
-                     │                        │  selects + tunes winner,
-                     │                        │  saves production model
+                     │     evaluate.py      │  compares metrics,
+                     │                      │  selects + tunes winner,
+                     │                      │  saves production model
                      └──────────┬───────────┘
                                 │
                      ┌──────────▼───────────┐
-                     │  models/*.joblib       │  versioned model registry
+                     │  models/*.joblib     │  versioned model registry
                      └──────────┬───────────┘
                                 │
-        ┌───────────────────────┼───────────────────────┐
-        │                       │                       │
-┌───────▼────────┐   ┌──────────▼──────────┐   ┌────────▼────────┐
-│  src/predict.py │   │   app/ (Flask API)   │   │  pytest suite    │
-│  CLI/notebook    │   │  GET  /              │   │  (tests/)        │
-│  interface       │   │  GET  /health        │   └──────────────────┘
-└─────────────────┘   │  POST /predict       │
+        ┌───────────────────────┼───────────────────────----
+        │                       │                          │
+┌───────▼────────┐     ┌──────────▼────────┐      ┌────────▼────────┐
+│  src/predict.py│     │   app/ (Flask API)│      │  pytest suite   │
+│  CLI/notebook  │     │  GET  /           │      │  (tests/)       │
+│  interface     │     │  GET  /health     │      └─────────────────┘
+└────────────────┘     │  POST /predict    │
+                       └──────────┬────────┘
+                                  │
+                       ┌──────────▼──────────┐
+                       │ templates/ + static │  Bootstrap frontend
+                       │(fetch() -> /predict)│
                        └──────────┬──────────┘
                                   │
                        ┌──────────▼──────────┐
-                       │  templates/ + static/ │  Bootstrap frontend
-                       │  (fetch() -> /predict) │
+                       │  Docker + Gunicorn  │
                        └──────────┬──────────┘
                                   │
                        ┌──────────▼──────────┐
-                       │  Docker + Gunicorn    │
-                       └──────────┬──────────┘
-                                  │
-                       ┌──────────▼──────────┐
-                       │   Render (deployed)   │
-                       └───────────────────────┘
+                       │   Render (deployed) │
+                       └─────────────────────┘
 ```
 
 **Key design decision:** every candidate model is wrapped in an identical
