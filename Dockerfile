@@ -8,28 +8,17 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# --- UPDATE: Added git and git-lfs into the apt-get layer ---
+# Cleaned up: just standard build tools and curl for health check
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
-    git \
-    git-lfs \
-    && git lfs install \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the project files (including the LFS pointer)
+# This copies everything over
 COPY . .
-
-# --- NEW: Force Git LFS to pull down the REAL 122MB joblib file ---
-# We use a dummy git initialization because the docker build context 
-# strips the hidden .git directory required by git-lfs.
-RUN git init && \
-    git remote add origin https://github.com/unbeatable951/car-price-prediction.git && \
-    git fetch --depth=1 origin main && \
-    git lfs pull
 
 EXPOSE 5000
 ENV PORT=5000
