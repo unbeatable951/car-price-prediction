@@ -26,4 +26,5 @@ ENV PORT=5000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD curl -f http://localhost:${PORT:-5000}/health || exit 1
 
-CMD gunicorn app.app:app --workers 2 --bind 0.0.0.0:$PORT --timeout 60
+# Change --workers 2 to --workers 1
+CMD gunicorn app.app:app --workers 1 --bind 0.0.0.0:$PORT --timeout 60
