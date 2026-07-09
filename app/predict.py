@@ -91,22 +91,31 @@ class CarPredictionRequest(BaseModel):
 # ----------------------------------------------------------------------
 # Shared predictor instance (loaded once, reused across requests)
 # ----------------------------------------------------------------------
-_predictor: Optional[CarPricePredictor] = None
+# Look for your global predictor variable (likely named _predictor or similar)
+_predictor = None
 
-
-def get_predictor() -> CarPricePredictor:
-    """
-    Returns a lazily-initialized, shared CarPricePredictor. Using a
-    module-level singleton (rather than instantiating a new
-    CarPricePredictor per request) avoids re-reading the .joblib file
-    from disk on every single API call — the model loads ONCE, at
-    first use (or at app startup, if init_predictor() is called there).
-    """
+def get_predictor():
     global _predictor
-    if _predictor is None:
-        _predictor = CarPricePredictor()
-        _predictor.load_model()
-    return _predictor
+    if _predictor is not None:
+        return _predictor
+        
+    try:
+        # 1. Create the instance
+        instance = CarPricePredictor() 
+        
+        # 2. Attempt to load the model file 
+        # (This will now succeed because of Git LFS!)
+        instance.load_model() 
+        
+        # 3. ONLY cache it if load_model() didn't throw an error
+        _predictor = instance  
+        return _predictor
+        
+    except Exception as e:
+        # If it fails, clean up the cache and pass the error along
+        _predictor = None
+        print(f"Failed to initialize predictor: {e}")
+        raise e
 
 
 def init_predictor() -> None:
