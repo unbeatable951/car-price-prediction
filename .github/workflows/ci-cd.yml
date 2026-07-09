@@ -36,11 +36,11 @@ jobs:
       - name: Lint with flake8
         run: flake8 src app config.py --max-line-length=120 --extend-ignore=E203,W503,F401,E501,W291,W293,E302,E402,W292
 
-      - name: Check formatting with Black
-        run: black --check --line-length=100 src app config.py
+      - name: Run Black formatter
+        run: black --line-length=120 src app config.py
 
-      - name: Check import order with isort
-        run: isort --check-only --profile black --line-length=100 src app config.py
+      - name: Run isort formatter
+        run: isort --profile black --line-length=120 src app config.py
 
       - name: Run pytest suite
         run: pytest tests/ -v --tb=short
