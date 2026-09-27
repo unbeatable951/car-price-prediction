@@ -19,7 +19,9 @@ ENV/
 data/*.csv
 
 # Trained models & artifacts (regenerate via training, don't bloat git history)
-models/*.joblib
+# NOTE: models/*.joblib is intentionally NOT ignored — it is tracked via
+# Git LFS (see .gitattributes). Ignoring it here would silently defeat
+# LFS tracking, since a gitignored path is never staged/committed at all.
 artifacts/*.joblib
 artifacts/*.csv
 artifacts/*.json

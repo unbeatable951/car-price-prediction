@@ -35,8 +35,7 @@ from typing import Optional
 from pydantic import BaseModel, Field, field_validator
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-import config  # noqa: E402
-from src.predict import CarPricePredictor, PredictionError  # noqa: E402
+from src.predict import CarPricePredictor  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -91,31 +90,47 @@ class CarPredictionRequest(BaseModel):
 # ----------------------------------------------------------------------
 # Shared predictor instance (loaded once, reused across requests)
 # ----------------------------------------------------------------------
-# Look for your global predictor variable (likely named _predictor or similar)
-_predictor = None
+_predictor: Optional[CarPricePredictor] = None
 
-def get_predictor():
+
+def get_predictor() -> CarPricePredictor:
+    """
+    Return the process-wide CarPricePredictor, loading it on first call.
+    The loaded instance is only cached once load_model() succeeds, so a
+    failed load never gets stuck as a "poisoned" cache entry — the next
+    call will retry the load instead of silently reusing a broken state.
+    """
     global _predictor
     if _predictor is not None:
         return _predictor
-        
+
+    instance = CarPricePredictor()
     try:
-        # 1. Create the instance
-        instance = CarPricePredictor() 
-        
-        # 2. Attempt to load the model file 
-        # (This will now succeed because of Git LFS!)
-        instance.load_model() 
-        
-        # 3. ONLY cache it if load_model() didn't throw an error
-        _predictor = instance  
-        return _predictor
-        
+        instance.load_model()
     except Exception as e:
-        # If it fails, clean up the cache and pass the error along
-        _predictor = None
-        print(f"Failed to initialize predictor: {e}")
-        raise e
+        logger.error(f"Failed to initialize predictor: {e}")
+        raise
+
+    _predictor = instance
+    return _predictor
+
+
+def get_known_brands() -> list[str]:
+    """
+    Returns the exact `brand` categories the loaded pipeline's
+    OneHotEncoder was fitted on. Used by:
+      - GET /brands, so the frontend can render a dropdown of brands
+        the model actually recognizes instead of free text.
+      - predict_price(), to flag (not reject) a brand the model has
+        never seen — since OneHotEncoder(handle_unknown="ignore")
+        would otherwise silently encode it as all-zeros and return a
+        confident-looking but essentially uninformed prediction.
+    """
+    predictor = get_predictor()
+    preprocessor = predictor.pipeline.named_steps["preprocessing"]
+    encoder = preprocessor.column_transformer_.named_transformers_["cat"].named_steps["onehot"]
+    brand_index = preprocessor.categorical_features.index("brand")
+    return sorted(encoder.categories_[brand_index].tolist())
 
 
 def init_predictor() -> None:
@@ -129,7 +144,7 @@ def init_predictor() -> None:
     logger.info("Model predictor initialized at app startup.")
 
 
-def predict_price(payload: CarPredictionRequest) -> float:
+def predict_price(payload: CarPredictionRequest) -> dict:
     """
     Runs a validated request through the ML pipeline.
 
@@ -140,8 +155,12 @@ def predict_price(payload: CarPredictionRequest) -> float:
 
     Returns
     -------
-    float
-        Predicted selling price.
+    dict
+        {"predicted_price": float, "warning": Optional[str]}
+        `warning` is set when `brand` wasn't among the categories the
+        model was trained on — the prediction still returns (the
+        encoder handles it gracefully), but the caller should know the
+        model had no real signal for that specific brand.
 
     Raises
     ------
@@ -150,4 +169,16 @@ def predict_price(payload: CarPredictionRequest) -> float:
     """
     predictor = get_predictor()
     data = payload.model_dump()
-    return predictor.predict_one(data)
+    predicted_price = predictor.predict_one(data)
+
+    warning = None
+    known_brands = get_known_brands()
+    if data["brand"] not in known_brands:
+        warning = (
+            f"'{data['brand']}' was not among the brands seen during training. "
+            f"This prediction falls back to the model's general pricing pattern "
+            f"and may be less accurate than for a recognized brand."
+        )
+        logger.warning(f"Prediction requested for unrecognized brand '{data['brand']}'.")
+
+    return {"predicted_price": predicted_price, "warning": warning}

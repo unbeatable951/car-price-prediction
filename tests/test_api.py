@@ -5,6 +5,7 @@ Integration tests for the Flask API endpoints, using Flask's built-in
 test client (no real server/network needed).
 Run with: pytest tests/test_api.py -v
 """
+
 import sys
 from pathlib import Path
 
@@ -25,6 +26,7 @@ pytestmark = pytest.mark.skipif(
 @pytest.fixture
 def client():
     from app.app import app
+
     app.config["TESTING"] = True
     with app.test_client() as c:
         yield c
@@ -100,3 +102,54 @@ def test_predict_non_json_body_returns_400(client):
 def test_predict_wrong_method_returns_405(client):
     response = client.get("/predict")
     assert response.status_code == 405
+
+
+def test_brands_returns_known_brand_list(client):
+    response = client.get("/brands")
+    assert response.status_code == 200
+    body = response.get_json()
+    assert "brands" in body
+    assert isinstance(body["brands"], list)
+    assert len(body["brands"]) > 0
+    # The fixture/production training data always includes "Maruti".
+    assert "Maruti" in body["brands"]
+
+
+def test_predict_known_brand_returns_no_warning(client, valid_payload):
+    response = client.post("/predict", json=valid_payload)
+    assert response.status_code == 200
+    assert response.get_json()["warning"] is None
+
+
+def test_predict_unrecognized_brand_returns_warning_not_error(client, valid_payload):
+    """
+    An unrecognized brand must NOT be rejected outright (the encoder
+    handles it gracefully via handle_unknown='ignore') — it should
+    still return 200 with a prediction, but flagged with a warning so
+    the caller knows the model had no real signal for that brand.
+    """
+    bad_brand_payload = dict(valid_payload, brand="TotallyMadeUpBrandXYZ")
+    response = client.post("/predict", json=bad_brand_payload)
+    assert response.status_code == 200
+    body = response.get_json()
+    assert "predicted_price" in body
+    assert body["warning"] is not None
+    assert "TotallyMadeUpBrandXYZ" in body["warning"]
+
+
+def test_predict_rate_limit_returns_429(client, valid_payload):
+    """
+    Confirms POST /predict is actually rate-limited (config.PREDICT_RATE_LIMIT).
+    Sends requests until a 429 is observed, rather than assuming a fixed
+    request count, since earlier tests in this module may have already
+    consumed part of the current window's quota against the same
+    in-memory limiter storage.
+    """
+    statuses = []
+    for _ in range(50):
+        response = client.post("/predict", json=valid_payload)
+        statuses.append(response.status_code)
+        if response.status_code == 429:
+            break
+
+    assert 429 in statuses, f"Expected a 429 within 50 requests, got statuses: {statuses}"

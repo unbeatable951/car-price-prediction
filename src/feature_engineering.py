@@ -53,7 +53,6 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 
@@ -73,6 +72,7 @@ if not logger.handlers:
 
 class FeatureEngineeringError(Exception):
     """Raised when the dataframe fails schema validation or transformation."""
+
     pass
 
 
@@ -155,11 +155,7 @@ class FeatureEngineer(BaseEstimator, TransformerMixin):
             self._validate_required_columns(df)
             df = self._drop_columns(df)
 
-            self.numeric_medians_ = {
-                col: df[col].median()
-                for col in config.NUMERICAL_FEATURES
-                if col in df.columns
-            }
+            self.numeric_medians_ = {col: df[col].median() for col in config.NUMERICAL_FEATURES if col in df.columns}
             self.categorical_modes_ = {
                 col: df[col].mode(dropna=True).iloc[0]
                 for col in config.CATEGORICAL_FEATURES

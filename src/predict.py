@@ -25,7 +25,7 @@ from __future__ import annotations
 import logging
 import sys
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
 import joblib
 import pandas as pd
@@ -72,9 +72,50 @@ class CarPricePredictor:
     # so input validation has a single source of truth.
     REQUIRED_FIELDS = config.NUMERICAL_FEATURES + config.CATEGORICAL_FEATURES
 
+    # First bytes of an unresolved Git LFS pointer file, e.g.:
+    #   "version https://git-lfs.github.com/spec/v1\noid sha256:...\nsize ..."
+    # Real joblib/pickle files never start with this text. Checking for it
+    # turns a cryptic `KeyError` / `UnpicklingError` (what joblib.load()
+    # raises on a pointer file) into an actionable error message.
+    _LFS_POINTER_PREFIX = b"version https://git-lfs.github.com/spec/v1"
+
     def __init__(self, model_path: Optional[Path] = None):
         self.model_path = Path(model_path) if model_path else config.LATEST_MODEL_FILE
         self.pipeline = None
+
+    def _validate_model_file(self) -> None:
+        """
+        Sanity-check the model file BEFORE handing it to joblib, so a
+        common misconfiguration (Git LFS content not pulled) fails with
+        a clear, actionable message instead of a confusing stack trace
+        deep inside pickle/joblib.
+        """
+        size = self.model_path.stat().st_size
+        with open(self.model_path, "rb") as f:
+            head = f.read(len(self._LFS_POINTER_PREFIX))
+
+        if head == self._LFS_POINTER_PREFIX:
+            message = (
+                f"'{self.model_path}' is an unresolved Git LFS pointer file, "
+                f"not a real model. Run 'git lfs pull' (and confirm your CI/"
+                f"deploy checkout step fetches LFS content) before loading "
+                f"this model."
+            )
+            logger.error(message)
+            raise PredictionError(message)
+
+        # A real trained pipeline (FeatureEngineer + Preprocessor + model)
+        # is always at least a few KB; anything smaller is almost
+        # certainly a placeholder, an empty file, or a partial download.
+        if size < 1024:
+            message = (
+                f"'{self.model_path}' is only {size} bytes — too small to be "
+                f"a real trained pipeline. It is likely corrupted, empty, or "
+                f"a placeholder. Re-run training/evaluation or re-fetch the "
+                f"model artifact before loading it."
+            )
+            logger.error(message)
+            raise PredictionError(message)
 
     def load_model(self) -> None:
         """Load the saved pipeline from disk. Called lazily on first
@@ -88,6 +129,8 @@ class CarPricePredictor:
             )
             logger.error(message)
             raise PredictionError(message)
+
+        self._validate_model_file()
 
         try:
             logger.info(f"Loading model pipeline from '{self.model_path}'")

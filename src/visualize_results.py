@@ -34,10 +34,11 @@ from typing import Optional
 
 import joblib
 import matplotlib
+
 matplotlib.use("Agg")  # non-interactive backend — safe for servers/CI without a display
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
+import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 import config  # noqa: E402
@@ -55,6 +56,7 @@ if not logger.handlers:
 
 class VisualizationError(Exception):
     """Raised when a saved model/bundle can't be loaded or plotted."""
+
     pass
 
 
@@ -71,9 +73,7 @@ class ResultsVisualizer:
         bundle_path: Optional[Path] = None,
     ):
         self.model_path = Path(model_path) if model_path else config.LATEST_MODEL_FILE
-        self.bundle_path = Path(bundle_path) if bundle_path else (
-            config.ARTIFACTS_DIR / "training_bundle.joblib"
-        )
+        self.bundle_path = Path(bundle_path) if bundle_path else (config.ARTIFACTS_DIR / "training_bundle.joblib")
         self.pipeline = None
         self.X_test = None
         self.y_test = None
@@ -128,9 +128,11 @@ class ResultsVisualizer:
             )
             return None
 
-        importance_df = pd.DataFrame({
-            "feature": feature_names, "importance": importances
-        }).sort_values("importance", ascending=False).head(top_n)
+        importance_df = (
+            pd.DataFrame({"feature": feature_names, "importance": importances})
+            .sort_values("importance", ascending=False)
+            .head(top_n)
+        )
 
         plt.figure(figsize=(9, max(5, top_n * 0.35)))
         plt.barh(importance_df["feature"][::-1], importance_df["importance"][::-1], color="#2E86AB")

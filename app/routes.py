@@ -16,12 +16,13 @@ app expected to grow beyond a handful of routes.
 from __future__ import annotations
 
 import logging
-# from flask import Blueprint, jsonify, render_template, request
 
 from flask import Blueprint, jsonify, render_template, request
 from pydantic import ValidationError
 
-from app.predict import CarPredictionRequest, get_predictor, predict_price
+import config
+from app.extensions import limiter
+from app.predict import CarPredictionRequest, get_known_brands, get_predictor, predict_price
 from src.predict import PredictionError
 
 logger = logging.getLogger(__name__)
@@ -38,16 +39,23 @@ def index():
 @api_bp.route("/api", methods=["GET"])
 def api_info():
     """Machine-readable service info, moved off of '/'."""
-    return jsonify({
-        "service": "Car Price Prediction API",
-        "status": "running",
-        "endpoints": {
-            "GET /": "Frontend web page",
-            "GET /api": "This message",
-            "GET /health": "Health check (confirms model is loaded)",
-            "POST /predict": "Predict a car's selling price from its features",
-        },
-    }), 200
+    return (
+        jsonify(
+            {
+                "service": "Car Price Prediction API",
+                "status": "running",
+                "endpoints": {
+                    "GET /": "Frontend web page",
+                    "GET /api": "This message",
+                    "GET /health": "Health check (confirms model is loaded)",
+                    "GET /brands": "Brands the loaded model recognizes",
+                    "POST /predict": "Predict a car's selling price from its features",
+                },
+            }
+        ),
+        200,
+    )
+
 
 @api_bp.route("/health", methods=["GET"])
 def health():
@@ -67,7 +75,24 @@ def health():
         return jsonify({"status": "unhealthy", "model_loaded": False, "error": str(e)}), 503
 
 
+@api_bp.route("/brands", methods=["GET"])
+def brands():
+    """
+    Returns the exact `brand` values the loaded model was trained on,
+    so the frontend can render a dropdown instead of free text — a
+    typo'd or unrecognized brand no longer silently produces a
+    confident-looking but uninformed prediction with no indication to
+    the user that anything was off.
+    """
+    try:
+        return jsonify({"brands": get_known_brands()}), 200
+    except PredictionError as e:
+        logger.error(f"GET /brands failed — model not loaded: {e}")
+        return jsonify({"error": "Model not loaded", "details": str(e)}), 503
+
+
 @api_bp.route("/predict", methods=["POST"])
+@limiter.limit(config.PREDICT_RATE_LIMIT)
 def predict():
     """
     Predicts a car's selling price from JSON input.
@@ -87,10 +112,13 @@ def predict():
         }
 
     Responses:
-        200 - {"predicted_price": 6.72}
+        200 - {"predicted_price": 6.72, "warning": null}
+              `warning` is non-null when `brand` wasn't recognized from
+              training — the prediction is still returned, just flagged.
         400 - malformed/missing JSON body
         422 - JSON present but fails schema validation (bad types,
               out-of-range values, invalid category)
+        429 - too many requests (see config.PREDICT_RATE_LIMIT)
         500 - unexpected server/model error
         503 - model not loaded (see /health)
     """
@@ -98,27 +126,29 @@ def predict():
     json_data = request.get_json(silent=True)
     if json_data is None:
         logger.warning("POST /predict received no valid JSON body.")
-        return jsonify({
-            "error": "Request body must be valid JSON with Content-Type: application/json"
-        }), 400
+        return jsonify({"error": "Request body must be valid JSON with Content-Type: application/json"}), 400
 
     # ---- 422: JSON present but fails schema validation ----
     try:
         payload = CarPredictionRequest(**json_data)
     except ValidationError as e:
         logger.warning(f"POST /predict validation failed: {e.errors()}")
-        return jsonify({
-            "error": "Invalid input data",
-            "details": [
-                {"field": ".".join(str(x) for x in err["loc"]), "message": err["msg"]}
-                for err in e.errors()
-            ],
-        }), 422
+        return (
+            jsonify(
+                {
+                    "error": "Invalid input data",
+                    "details": [
+                        {"field": ".".join(str(x) for x in err["loc"]), "message": err["msg"]} for err in e.errors()
+                    ],
+                }
+            ),
+            422,
+        )
 
     # ---- 500: unexpected error during prediction ----
     try:
-        predicted_price = predict_price(payload)
-        return jsonify({"predicted_price": predicted_price}), 200
+        result = predict_price(payload)
+        return jsonify(result), 200
 
     except PredictionError as e:
         logger.error(f"Prediction failed: {e}")

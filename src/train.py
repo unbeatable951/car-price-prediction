@@ -55,11 +55,10 @@ import logging
 import sys
 import time
 from pathlib import Path
-from typing import Optional
 
 import joblib
-import numpy as np
 import pandas as pd
+from catboost import CatBoostRegressor
 from sklearn.ensemble import (
     ExtraTreesRegressor,
     GradientBoostingRegressor,
@@ -70,7 +69,6 @@ from sklearn.model_selection import KFold, cross_val_score, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.tree import DecisionTreeRegressor
 from xgboost import XGBRegressor
-from catboost import CatBoostRegressor
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 import config  # noqa: E402
@@ -91,6 +89,7 @@ if not logger.handlers:
 
 class TrainingError(Exception):
     """Raised when data loading, splitting, or model training fails."""
+
     pass
 
 
@@ -147,9 +146,7 @@ class ModelTrainer:
                 X, y, test_size=config.TEST_SIZE, random_state=self.random_state
             )
 
-            logger.info(
-                f"Data split complete — Train: {X_train.shape}, Test: {X_test.shape}"
-            )
+            logger.info(f"Data split complete — Train: {X_train.shape}, Test: {X_test.shape}")
             return X_train, X_test, y_train, y_test
 
         except DataIngestionError as e:
@@ -173,21 +170,11 @@ class ModelTrainer:
             "Ridge": Ridge(random_state=self.random_state),
             "Lasso": Lasso(random_state=self.random_state),
             "Decision Tree": DecisionTreeRegressor(random_state=self.random_state),
-            "Random Forest": RandomForestRegressor(
-                random_state=self.random_state, n_jobs=-1
-            ),
-            "Extra Trees": ExtraTreesRegressor(
-                random_state=self.random_state, n_jobs=-1
-            ),
-            "Gradient Boosting": GradientBoostingRegressor(
-                random_state=self.random_state
-            ),
-            "XGBoost": XGBRegressor(
-                random_state=self.random_state, n_jobs=-1, verbosity=0
-            ),
-            "CatBoost": CatBoostRegressor(
-                random_state=self.random_state, verbose=0
-            ),
+            "Random Forest": RandomForestRegressor(random_state=self.random_state, n_jobs=-1),
+            "Extra Trees": ExtraTreesRegressor(random_state=self.random_state, n_jobs=-1),
+            "Gradient Boosting": GradientBoostingRegressor(random_state=self.random_state),
+            "XGBoost": XGBRegressor(random_state=self.random_state, n_jobs=-1, verbosity=0),
+            "CatBoost": CatBoostRegressor(random_state=self.random_state, verbose=0),
         }
 
     def build_pipeline(self, model) -> Pipeline:
@@ -198,18 +185,18 @@ class ModelTrainer:
         model's pipeline is fully independent — fitting one pipeline
         can never accidentally mutate another's learned statistics.
         """
-        return Pipeline(steps=[
-            ("feature_engineering", FeatureEngineer()),
-            ("preprocessing", Preprocessor()),
-            ("model", model),
-        ])
+        return Pipeline(
+            steps=[
+                ("feature_engineering", FeatureEngineer()),
+                ("preprocessing", Preprocessor()),
+                ("model", model),
+            ]
+        )
 
     # ------------------------------------------------------------------
     # Training
     # ------------------------------------------------------------------
-    def train_all_models(
-        self, X_train: pd.DataFrame, y_train: pd.Series
-    ) -> dict:
+    def train_all_models(self, X_train: pd.DataFrame, y_train: pd.Series) -> dict:
         """
         Fits one full pipeline per candidate model on the training data.
 
@@ -247,9 +234,7 @@ class ModelTrainer:
     # ------------------------------------------------------------------
     # Cross-validation
     # ------------------------------------------------------------------
-    def cross_validate_all(
-        self, X_train: pd.DataFrame, y_train: pd.Series, cv: int = config.CV_FOLDS
-    ) -> dict:
+    def cross_validate_all(self, X_train: pd.DataFrame, y_train: pd.Series, cv: int = config.CV_FOLDS) -> dict:
         """
         Runs K-Fold cross-validation for every candidate model, refitting
         the FULL pipeline (feature engineering + preprocessing + model)
@@ -271,17 +256,12 @@ class ModelTrainer:
                 logger.info(f"Cross-validating '{name}' ({cv}-fold)...")
                 pipeline = self.build_pipeline(model)
 
-                scores = cross_val_score(
-                    pipeline, X_train, y_train, cv=kfold, scoring="r2", n_jobs=1
-                )
+                scores = cross_val_score(pipeline, X_train, y_train, cv=kfold, scoring="r2", n_jobs=1)
                 results[name] = {
                     "cv_mean_r2": round(scores.mean(), 4),
                     "cv_std_r2": round(scores.std(), 4),
                 }
-                logger.info(
-                    f"'{name}' CV R2: {results[name]['cv_mean_r2']} "
-                    f"(+/- {results[name]['cv_std_r2']})"
-                )
+                logger.info(f"'{name}' CV R2: {results[name]['cv_mean_r2']} " f"(+/- {results[name]['cv_std_r2']})")
 
             except Exception as e:
                 logger.error(f"Cross-validation failed for '{name}': {e}")

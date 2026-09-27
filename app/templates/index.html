@@ -85,8 +85,9 @@
 
         <div class="col-md-6">
           <label class="vg-label" for="brand">Brand</label>
-          <input type="text" class="form-control vg-input" id="brand" name="brand"
-                 placeholder="e.g. Maruti" required>
+          <select class="form-select vg-input" id="brand" name="brand" required>
+            <option value="" disabled selected>Loading brands…</option>
+          </select>
         </div>
 
         <div class="col-md-6">
@@ -177,6 +178,9 @@
 
       <!-- Error banner -->
       <div id="errorBanner" class="vg-error-banner d-none" role="alert"></div>
+
+      <!-- Soft warning banner (e.g. unrecognized brand) — result still shown -->
+      <div id="warningBanner" class="vg-warning-banner d-none" role="status"></div>
 
       <!-- Result readout -->
       <div id="resultCard" class="vg-result d-none">

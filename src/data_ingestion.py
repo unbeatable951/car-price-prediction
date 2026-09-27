@@ -21,14 +21,13 @@ DESIGN PATTERN
 ---------------
 We use a class (`DataIngestion`) rather than a bare function so that:
   - State (like the loaded DataFrame or file path) is encapsulated.
-  - It's trivially testable (see tests/test_data_ingestion.py later).
+  - It's trivially testable (see tests/test_data_ingestion.py).
   - It mirrors how real ML platforms (e.g. sklearn Pipelines, Kubeflow
     components) structure ingestion as a discrete, reusable unit.
 """
 
 from __future__ import annotations
 
-import logging
 import sys
 from pathlib import Path
 from typing import Optional
@@ -37,26 +36,13 @@ import pandas as pd
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 import config  # noqa: E402
+from src.logging_utils import get_logger  # noqa: E402
 
-# ----------------------------------------------------------------------
-# LOGGER SETUP
-# ----------------------------------------------------------------------
-# Every module gets its own named logger (__name__), but they all share
-# the same format/handlers defined once in config.py's LOG_FORMAT.
-# This means log lines are traceable to the exact file that emitted them,
-# e.g.: "2026-07-04 ... | src.data_ingestion | INFO | Loaded 301 rows"
-logger = logging.getLogger(__name__)
-if not logger.handlers:
-    logger.setLevel(config.LOG_LEVEL)
-
-    file_handler = logging.FileHandler(config.LOG_FILE)
-    file_handler.setFormatter(logging.Formatter(config.LOG_FORMAT))
-
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(logging.Formatter(config.LOG_FORMAT))
-
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
+# Every module gets its own named logger (__name__) via the shared
+# get_logger() helper (src/logging_utils.py), so log lines are
+# traceable to the exact file that emitted them, e.g.:
+#   "2026-07-04 ... | src.data_ingestion | INFO | Loaded 301 rows"
+logger = get_logger(__name__)
 
 
 class DataIngestionError(Exception):
@@ -69,6 +55,7 @@ class DataIngestionError(Exception):
     specifically, calling code (train.py, the Flask app, tests) can catch
     ingestion problems distinctly from, say, a model-training failure.
     """
+
     pass
 
 
@@ -154,10 +141,7 @@ class DataIngestion:
 
             self._validate_schema(df)
 
-            logger.info(
-                f"Dataset loaded successfully: {df.shape[0]} rows, "
-                f"{df.shape[1]} columns."
-            )
+            logger.info(f"Dataset loaded successfully: {df.shape[0]} rows, " f"{df.shape[1]} columns.")
             logger.info(f"Columns found: {list(df.columns)}")
 
             self._df = df

@@ -35,8 +35,29 @@ LOGS_DIR = BASE_DIR / "logs"
 
 # Ensure critical directories exist at import time so no module ever
 # crashes with "FileNotFoundError: directory does not exist".
+#
+# Guarded with try/except: some deployment environments (a read-only
+# container filesystem, a serverless platform, restrictive file
+# permissions) can't create directories at import time. Previously,
+# `import config` itself would raise and take down the entire process
+# before any other code — including error handling — had a chance to
+# run. Now a failure here is logged to stderr (the real logger isn't
+# set up yet, since src/logging_utils.py itself imports this module)
+# and import proceeds; anything that actually needs to write to a
+# missing directory will fail with its own clear error at that point,
+# rather than the whole app refusing to even start.
 for _dir in [DATA_DIR, MODELS_DIR, ARTIFACTS_DIR, LOGS_DIR]:
-    _dir.mkdir(parents=True, exist_ok=True)
+    try:
+        _dir.mkdir(parents=True, exist_ok=True)
+    except OSError as _dir_error:
+        import sys as _sys
+
+        print(
+            f"WARNING: config.py could not create directory '{_dir}' "
+            f"({_dir_error}). Continuing — code that writes to this "
+            f"directory will raise its own error if it's actually needed.",
+            file=_sys.stderr,
+        )
 
 # ----------------------------------------------------------------------
 # DATA FILES
@@ -141,3 +162,24 @@ LOG_FORMAT = "%(asctime)s | %(name)s | %(levelname)s | %(message)s"
 FLASK_HOST = os.getenv("FLASK_HOST", "0.0.0.0")
 FLASK_PORT = int(os.getenv("PORT", 5000))
 FLASK_DEBUG = os.getenv("FLASK_DEBUG", "False") == "True"
+
+# ----------------------------------------------------------------------
+# CORS
+# ----------------------------------------------------------------------
+# Comma-separated list of allowed browser origins, e.g.:
+#   ALLOWED_ORIGINS="https://valugauge.example.com,https://staging.example.com"
+# Defaults to "*" (any origin) ONLY for local development convenience —
+# every deployed environment (Render, etc.) should set ALLOWED_ORIGINS
+# explicitly so the API can't be called cross-origin from arbitrary sites.
+_allowed_origins_raw = os.getenv("ALLOWED_ORIGINS", "*")
+ALLOWED_ORIGINS = (
+    "*" if _allowed_origins_raw.strip() == "*" else [o.strip() for o in _allowed_origins_raw.split(",") if o.strip()]
+)
+
+# ----------------------------------------------------------------------
+# RATE LIMITING
+# ----------------------------------------------------------------------
+# Applied to POST /predict specifically (the only expensive/scrapable
+# endpoint). Expressed as a flask-limiter rate string; override per
+# environment via env var without a code change.
+PREDICT_RATE_LIMIT = os.getenv("PREDICT_RATE_LIMIT", "30 per minute")

@@ -26,6 +26,7 @@ from flask_cors import CORS
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 import config  # noqa: E402
+from app.extensions import limiter  # noqa: E402
 from app.predict import init_predictor  # noqa: E402
 from app.routes import api_bp  # noqa: E402
 
@@ -58,10 +59,19 @@ def create_app() -> Flask:
         static_folder="static",
     )
 
-    # CORS enabled so the frontend (served from templates/ or a
-    # separate static host) can call this API from the browser without
-    # being blocked by same-origin policy.
-    CORS(app)
+    # CORS is scoped to config.ALLOWED_ORIGINS (env var ALLOWED_ORIGINS),
+    # not left wide open — only browsers on approved origins can call
+    # this API cross-origin. Defaults to "*" for local dev only; every
+    # deployed environment should set ALLOWED_ORIGINS explicitly.
+    if config.ALLOWED_ORIGINS == "*":
+        logger.warning(
+            "ALLOWED_ORIGINS is not set — CORS is open to all origins ('*'). "
+            "This is fine for local development but should be restricted "
+            "to known frontend origin(s) in any deployed environment."
+        )
+    CORS(app, resources={r"/*": {"origins": config.ALLOWED_ORIGINS}})
+
+    limiter.init_app(app)
 
     app.register_blueprint(api_bp)
 
