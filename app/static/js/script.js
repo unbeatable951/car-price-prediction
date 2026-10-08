@@ -71,7 +71,33 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function showResult(price, warning) {
     hideError();
-    if (resultValue) resultValue.textContent = Number(price).toFixed(2);
+    const numPrice = Number(price);
+    const unitEl = document.getElementById("resultUnit");
+    const fullValueEl = document.getElementById("resultFullValue");
+
+    let displayPrice;
+    let unitText = "Lakh";
+
+    // The ML model outputs price in raw INR (e.g. 2532432.27 = ~25.32 Lakhs)
+    if (numPrice >= 10000000) {
+      displayPrice = (numPrice / 10000000).toFixed(2);
+      unitText = "Cr";
+    } else if (numPrice >= 100000) {
+      displayPrice = (numPrice / 100000).toFixed(2);
+      unitText = "Lakh";
+    } else {
+      displayPrice = numPrice.toFixed(2);
+      unitText = "Lakh";
+    }
+
+    if (resultValue) resultValue.textContent = displayPrice;
+    if (unitEl) unitEl.textContent = ` ${unitText}`;
+
+    if (fullValueEl) {
+      const totalRupees = Math.round(numPrice >= 100000 ? numPrice : numPrice * 100000);
+      fullValueEl.textContent = `(₹ ${totalRupees.toLocaleString("en-IN")})`;
+    }
+
     if (resultCard) {
       resultCard.classList.remove("d-none");
       resultCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
