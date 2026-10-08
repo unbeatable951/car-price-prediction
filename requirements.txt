@@ -31,6 +31,7 @@ joblib==1.4.2
 # ---------------- Web Framework (Flask API) ----------------
 Flask==3.0.3
 flask-cors==4.0.1
+flask-limiter==3.7.0
 gunicorn==22.0.0
 
 # ---------------- Input Validation ----------------
