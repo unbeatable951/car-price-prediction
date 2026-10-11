@@ -1,4 +1,4 @@
-# 🚗 Car Price Prediction — Production ML Project
+# 🚗 ValuGauge - Car Price Prediction 
 https://car-price-prediction-5lwl.onrender.com
 
 An end-to-end, production-grade machine learning system that predicts
